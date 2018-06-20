@@ -56,25 +56,33 @@
 (nthcdr 0 '(1 2 3))
 
 (setq cpu-load-buffer (get-buffer-create "cpu-load"))
+(with-current-buffer cpu-load-buffer (read-only-mode))
 
 ;; timer controller function
 (defun measure-cpu (buffer)
   "Presents cpu usage information in buffer"
   (if (not last-val)
-      (setq last-val (0 0 0 0 0 0 0 0 0 0))) 
+      (setq last-val '(0 0 0 0 0 0 0 0 0 0)))
   (with-current-buffer buffer
-    (erase-buffer)
     (let ((values (cpu-values (car (cpu-lines (read-lines "/proc/stat"))))))
-      (insert (format "CPU-LOAD: %.3f%%" (total-usage-percentage last-val values)))
-      (setq last-val values))
-    )
+      (progn
+	(setq buffer-read-only nil)
+	(erase-buffer)
+	(insert (format "CPU-LOAD: %.3f%%" (total-usage-percentage last-val values)))
+	(setq buffer-read-only t)
+	(setq last-val values)))
+   )
   )
+
+
+
+(measure-cpu cpu-load-buffer)
 
 (setq cpu-load-timer (run-at-time t 1 #'measure-cpu cpu-load-buffer))
 
 (cancel-timer cpu-load-timer)
 ;; (measure-cpu cpu-load-buffer)
 
-;; timer-list
+(cancel-timer (car timer-list))
 
 
