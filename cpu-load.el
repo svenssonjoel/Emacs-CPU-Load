@@ -13,6 +13,10 @@
 
 (defvar cpu-load-timer ())
 
+(defvar cpu-load-num-cpus ())
+
+(defconst cpu-load-bar-width 20) ;must divide 100
+
 ;; Functions 
 
 (defun read-lines (filePath)
@@ -32,12 +36,6 @@
   "Takes a string (one cpu line) from the stat file and parses out the values"
   (mapcar 'string-to-number (cdr (split-string string " " t))))
 
-(mapcar (lambda (cv) (seq-reduce #'+ cv 0)) (mapcar 'cpu-values (cpu-lines (read-lines "/proc/stat"))))
-
-(setq last-val (cpu-values (car (cpu-lines (read-lines "/proc/stat")))))
-(length (cpu-lines (read-lines "/proc/stat")))
-(cpu-lines (read-lines "/proc/stat"))
-
 (defun total-usage-percentage-string (old-values values)
   "Returns a string representing cpu usage percentage"
   (let ((idle-old-val (car (nthcdr 3 old-values)))
@@ -56,32 +54,68 @@
       (* 100 (- 1.0 (/ (float idle-val) (float tot-val))))))
   )
 
+(defun cpu-load-bar-string (p)
+  "returns a bar representing the load percentage as a string"
+  (let ((bar-string "[")
+	(tick-size (/ 100 cpu-load-bar-width)))
+    (let ((ticks (/ p tick-size)))
+      (concat
+       (concat "["
+	       (make-string ticks ?#))
+       (concat (make-string (- cpu-load-bar-width ticks) ?\s) "]" )))))
+
+
+(cpu-load-bar-string 30)
+    ;;(while (> p (/ 100 cpu-load-bar-width))
+    ;;  (setq bar-string (cons "#" bar-string
+    
+
 (defun measure-cpu-init ()
   "Initialise some state related to the cpu-load measurements"
   (if cpu-load-timer
       (cancel-timer cpu-load-timer)
     ())
-     
+
+  (let ((tmp (cpu-lines (read-lines "/proc/stat"))))
+    (setq cpu-load-num-cpus (length tmp)))
+  
+  (setq last-val (make-list cpu-load-num-cpus '(0 0 0 0 0 0 0 0 0 0)))
+  
   (setq cpu-load-buffer (get-buffer-create "cpu-load"))
   (setq cpu-load-timer (run-at-time t 1 #'measure-cpu cpu-load-buffer))
   )
 
 
 ;; timer controller function
+;; TODO: improve
 (defun measure-cpu (buffer)
   "Presents cpu usage information in buffer"
-  (if (not last-val)
-      (setq last-val '(0 0 0 0 0 0 0 0 0 0)))
   (with-current-buffer buffer
-    (let ((values (cpu-values (car (cpu-lines (read-lines "/proc/stat"))))))
+    (let ((values (mapcar 'cpu-values (cpu-lines (read-lines "/proc/stat")))))
       (progn
 	(setq buffer-read-only nil)
 	(erase-buffer)
-	(insert (format "CPU-LOAD: %.3f%%" (total-usage-percentage last-val values)))
+	(let ((p (total-usage-percentage (car last-val) (car values))))
+	  (progn
+	    (insert "Total") 
+	    (insert (cpu-load-bar-string (round p)))
+	    (insert (format "%.3f%%\n" p))))
+
+	(setq i 1)
+	(while (< i cpu-load-num-cpus)
+	  (let ((p (total-usage-percentage (car (nthcdr i last-val)) (car (nthcdr i values)))))
+	    (progn
+	      (insert (concat " CPU" (int-to-string (- i 1))))
+	      (insert (cpu-load-bar-string (round p)))
+	      (insert (format "%.3f%%\n" p))))
+	  (setq i (+ i 1))
+	  )
+	
 	(setq buffer-read-only t)
 	(setq last-val values)))
-   )
+    )
   )
+  
 
 (cancel-timer cpu-load-timer)
 ;; (measure-cpu cpu-load-buffer)
