@@ -5,6 +5,16 @@
 ;; elisp
 (require 'seq)
 
+
+;; Global variables 
+(defvar last-val ())
+
+(defvar cpu-load-buffer ())
+
+(defvar cpu-load-timer ())
+
+;; Functions 
+
 (defun read-lines (filePath)
   "Return a list of lines of a file at filePath."
   (with-temp-buffer
@@ -28,7 +38,6 @@
 (length (cpu-lines (read-lines "/proc/stat")))
 (cpu-lines (read-lines "/proc/stat"))
 
-
 (defun total-usage-percentage-string (old-values values)
   "Returns a string representing cpu usage percentage"
   (let ((idle-old-val (car (nthcdr 3 old-values)))
@@ -47,16 +56,16 @@
       (* 100 (- 1.0 (/ (float idle-val) (float tot-val))))))
   )
 
+(defun measure-cpu-init ()
+  "Initialise some state related to the cpu-load measurements"
+  (if cpu-load-timer
+      (cancel-timer cpu-load-timer)
+    ())
+     
+  (setq cpu-load-buffer (get-buffer-create "cpu-load"))
+  (setq cpu-load-timer (run-at-time t 1 #'measure-cpu cpu-load-buffer))
+  )
 
-(defvar last-val ())
-
-
-(total-usage-percentage-string last-val (cpu-values (car (cpu-lines (read-lines "/proc/stat")))))
-
-(nthcdr 0 '(1 2 3))
-
-(setq cpu-load-buffer (get-buffer-create "cpu-load"))
-(with-current-buffer cpu-load-buffer (read-only-mode))
 
 ;; timer controller function
 (defun measure-cpu (buffer)
@@ -74,15 +83,9 @@
    )
   )
 
-
-
-(measure-cpu cpu-load-buffer)
-
-(setq cpu-load-timer (run-at-time t 1 #'measure-cpu cpu-load-buffer))
-
 (cancel-timer cpu-load-timer)
 ;; (measure-cpu cpu-load-buffer)
 
 (cancel-timer (car timer-list))
-
+timer-list
 
