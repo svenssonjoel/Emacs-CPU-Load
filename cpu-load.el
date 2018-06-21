@@ -60,12 +60,9 @@
       (concat
        (concat "["
 	       (make-string (round bar-length) ?#))
-       (concat (make-string (- cpu-load-bar-width (round bar-length)) ?\s) "]" )))))
-
-
-(cpu-load-bar-string 30)
-    ;;(while (> p (/ 100 cpu-load-bar-width))
-    ;;  (setq bar-string (cons "#" bar-string
+       (concat
+	(make-string
+	 (- cpu-load-bar-width (round bar-length)) ?\s) "]" )))))
     
 
 (defun measure-cpu-init ()
@@ -84,8 +81,7 @@
   )
 
 
-;; timer controller function
-;; TODO: improve
+;; Function launched periodically from timer
 (defun measure-cpu (buffer)
   "Presents cpu usage information in buffer"
   (with-current-buffer buffer
@@ -96,17 +92,19 @@
 	(let ((p (usage-percentage (car last-val) (car values))))
 	  (progn
 	    (insert "Total") 
-	    ;(insert (cpu-load-bar-string (round p)))
 	    (insert (cpu-load-bar-string (car last-val) (car values)))
 	    (insert (format "%.3f%%\n" p))))
 
 	(setq i 1)
 	(while (< i cpu-load-num-cpus)
-	  (let ((p (usage-percentage (car (nthcdr i last-val)) (car (nthcdr i values)))))
+	  (let ((p (usage-percentage
+		    (car (nthcdr i last-val))
+		    (car (nthcdr i values)))))
 	    (progn
 	      (insert (concat " CPU" (int-to-string (- i 1))))
-	      (insert (cpu-load-bar-string (car (nthcdr i last-val)) (car (nthcdr i values))))
-	      ;(insert (cpu-load-bar-string (round p)))
+	      (insert (cpu-load-bar-string
+		       (car (nthcdr i last-val))
+		       (car (nthcdr i values))))
 	      (insert (format "%.3f%%\n" p))))
 	  (setq i (+ i 1))
 	  )
@@ -117,9 +115,10 @@
   )
   
 
-(cancel-timer cpu-load-timer)
+;; debug
+;; (cancel-timer cpu-load-timer)
 ;; (measure-cpu cpu-load-buffer)
 
-(cancel-timer (car timer-list))
-timer-list
+;; (cancel-timer (car timer-list))
+;; timer-list
 
