@@ -15,7 +15,7 @@
 
 (defvar cpu-load-num-cpus ())
 
-(defconst cpu-load-bar-width 20) ;must divide 100
+(defconst cpu-load-bar-width 39) 
 
 ;; Functions 
 
@@ -36,33 +36,31 @@
   "Takes a string (one cpu line) from the stat file and parses out the values"
   (mapcar 'string-to-number (cdr (split-string string " " t))))
 
-(defun total-usage-percentage-string (old-values values)
-  "Returns a string representing cpu usage percentage"
+(defun usage-part (old-values values)
+  "returns load over last period of time as value between 0 and 1"
   (let ((idle-old-val (car (nthcdr 3 old-values)))
 	(tot-old-val  (seq-reduce #'+ old-values 0)))
     (let ((idle-val (- (car (nthcdr 3 values)) idle-old-val))
 	  (tot-val  (- (seq-reduce #'+ values 0) tot-old-val)))
-      (number-to-string (* 100 (- 1.0 (/ (float idle-val) (float tot-val)))))))
+      (- 1.0 (/ (float idle-val) (float tot-val)))))
   )
 
-(defun total-usage-percentage (old-values values)
+
+(defun usage-percentage (old-values values)
   "Returns cpu usage percentage"
-  (let ((idle-old-val (car (nthcdr 3 old-values)))
-	(tot-old-val  (seq-reduce #'+ old-values 0)))
-    (let ((idle-val (- (car (nthcdr 3 values)) idle-old-val))
-	  (tot-val  (- (seq-reduce #'+ values 0) tot-old-val)))
-      (* 100 (- 1.0 (/ (float idle-val) (float tot-val))))))
-  )
+  (* 100 (usage-part old-values values)))
 
-(defun cpu-load-bar-string (p)
+(defun cpu-load-bar-string (old-values values)
   "returns a bar representing the load percentage as a string"
   (let ((bar-string "[")
+	(load (usage-part old-values values))
 	(tick-size (/ 100 cpu-load-bar-width)))
-    (let ((ticks (/ p tick-size)))
+    (let ((ticks (/ p tick-size))
+	  (bar-length (* load cpu-load-bar-width)))
       (concat
        (concat "["
-	       (make-string ticks ?#))
-       (concat (make-string (- cpu-load-bar-width ticks) ?\s) "]" )))))
+	       (make-string (round bar-length) ?#))
+       (concat (make-string (- cpu-load-bar-width (round bar-length)) ?\s) "]" )))))
 
 
 (cpu-load-bar-string 30)
@@ -95,18 +93,20 @@
       (progn
 	(setq buffer-read-only nil)
 	(erase-buffer)
-	(let ((p (total-usage-percentage (car last-val) (car values))))
+	(let ((p (usage-percentage (car last-val) (car values))))
 	  (progn
 	    (insert "Total") 
-	    (insert (cpu-load-bar-string (round p)))
+	    ;(insert (cpu-load-bar-string (round p)))
+	    (insert (cpu-load-bar-string (car last-val) (car values)))
 	    (insert (format "%.3f%%\n" p))))
 
 	(setq i 1)
 	(while (< i cpu-load-num-cpus)
-	  (let ((p (total-usage-percentage (car (nthcdr i last-val)) (car (nthcdr i values)))))
+	  (let ((p (usage-percentage (car (nthcdr i last-val)) (car (nthcdr i values)))))
 	    (progn
 	      (insert (concat " CPU" (int-to-string (- i 1))))
-	      (insert (cpu-load-bar-string (round p)))
+	      (insert (cpu-load-bar-string (car (nthcdr i last-val)) (car (nthcdr i values))))
+	      ;(insert (cpu-load-bar-string (round p)))
 	      (insert (format "%.3f%%\n" p))))
 	  (setq i (+ i 1))
 	  )
